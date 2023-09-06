@@ -55,7 +55,7 @@ pip install -r requirements.txt
 
 ## Training the Model
 
-Once the libraries are installed, execute `train_transformer_distillbert_classification.py` to train your Machine Learning model. The model will be saved in Models Folder.
+Once the libraries are installed, execute `train_transformer_distillbert_classification.py` to train your Deep Learning model. The model will be saved in Models Folder.
 
 ```bash
 python train_transformer_distillbert_classification.py
