@@ -1,5 +1,5 @@
 
-# Fake News Classifier Using Transaformers and Web App using FastAPI
+# Fake News Classifier Using Transformers and Web App using FastAPI
 
 This project aims to build a Transformer Based Learning model for classifying fake news articles. We use FastAPI to serve the model as a web application.
 
