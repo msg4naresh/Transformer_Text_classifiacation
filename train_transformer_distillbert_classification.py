@@ -1,4 +1,5 @@
 import torch
+import os
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score
@@ -6,15 +7,20 @@ from transformers import DistilBertTokenizer, DistilBertForSequenceClassificatio
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 import torch.optim as optim
 from tqdm import tqdm
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Function to read data from CSV files
 def read_data(true_file, fake_file):
     try:
+        
         true_df = pd.read_csv(true_file)
         fake_df = pd.read_csv(fake_file)
+        logger.info("Data loaded successfully.")
         return true_df, fake_df
     except Exception as e:
-        print(f"Error reading data: {e}")
+        logger.error(f"Error loading data: {e}")
         return None, None
 
 # Function to label data
@@ -24,7 +30,7 @@ def label_data(true_df, fake_df):
     return true_df, fake_df
 
 # Function to shuffle and split data
-def shuffle_and_split(true_df, fake_df, test_size=0.2,limit_samples=1000):
+def shuffle_and_split(true_df, fake_df, test_size=0.2,limit_samples=100):
     combined_df = pd.concat([true_df, fake_df], ignore_index=True)
     
     # Limiting the number of samples for quicker execution
@@ -34,7 +40,7 @@ def shuffle_and_split(true_df, fake_df, test_size=0.2,limit_samples=1000):
     combined_df = combined_df[['content', 'isFake']] 
     
     train_data, test_data = train_test_split(combined_df, test_size=test_size)
-    
+    logging.info('Shuffled and split the data into training and testing sets.')
     return train_data,test_data
 
 
@@ -71,7 +77,7 @@ def train_model(model, train_dataloader, epochs=3, lr=1e-5):
             
             optimizer.step()
         
-        print(f"Epoch {epoch} completed.")
+        logging.info(f"Epoch {epoch} completed.")
 
 
 
@@ -96,18 +102,19 @@ def evaluate_model(model, test_dataloader, metrics=['accuracy', 'f1']):
         # Storing all predictions and labels for later use
         all_preds.extend(predictions.cpu().numpy())
         all_labels.extend(batch_labels.cpu().numpy())
-
     if 'accuracy' in metrics:
         acc = accuracy_score(all_labels, all_preds)
-        print(f"Test Accuracy: {acc:.4f}")
+        logging.info(f"Test Accuracy: {acc:.4f}")
 
     if 'f1' in metrics:
-        f1 = f1_score(all_labels, all_preds, average='binary')  # You can choose other averaging methods if required
-        print(f"Test F1 Score: {f1:.4f}")
+        f1 = f1_score(all_labels, all_preds, average='binary') 
+        logging.info(f"Test F1 Score: {f1:.4f}")
 
 
-
-
+def save_model(model, path='trained_model.pth'):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    torch.save(model.state_dict(), path)
+    logging.info(f"Model Saved Successfully")
 
 if __name__ == "__main__":
     true_file = 'data/True.csv'
@@ -120,7 +127,9 @@ if __name__ == "__main__":
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
     
     train_encoded = encode_data(train_df, tokenizer)
+    logger.info("train data encoded successfully.")
     test_encoded = encode_data(test_df, tokenizer)
+    logger.info("test data encoded successfully.")
     
     model = DistilBertForSequenceClassification.from_pretrained(
         'distilbert-base-uncased',
@@ -132,9 +141,14 @@ if __name__ == "__main__":
     batch_size = 4
     train_dataset = TensorDataset(train_encoded['input_ids'], train_encoded['attention_mask'], torch.tensor(train_df['isFake'].values))
     train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
+    logger.info("created Tensor dataset and dataloader for train data successfully.")
     
     test_dataset = TensorDataset(test_encoded['input_ids'], test_encoded['attention_mask'], torch.tensor(test_df['isFake'].values))
     test_dataloader = DataLoader(test_dataset, sampler=SequentialSampler(test_dataset), batch_size=batch_size)
+    logger.info("created Tensor dataset and dataloader for test data successfully.")
     
     train_model(model, train_dataloader)
+    logger.info("Model trained successfully.")
     evaluate_model(model, test_dataloader)
+    logger.info("Model evaluation done successfully.")
+    save_model(model, 'models/trained_model.pth')
